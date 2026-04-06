@@ -7,6 +7,7 @@ Welcome to Phase 3 of the Agentic AI course! This lab focuses on moving from a s
 ### 1. Setup Environment
 Copy the `.env.example` to `.env` and fill in your API keys:
 ```bash
+#lmao
 cp .env.example .env
 ```
 
