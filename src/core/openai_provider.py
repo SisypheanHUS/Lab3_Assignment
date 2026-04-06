@@ -39,6 +39,28 @@ class OpenAIProvider(LLMProvider):
             "provider": "openai"
         }
 
+    def generate_response(self, system_prompt: str, history: list, prompt: str) -> str:
+        """
+        Generate a response with full conversation history.
+        Overrides base class to properly handle multi-turn conversations.
+        """
+        start_time = time.time()
+        
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        
+        # Add conversation history
+        messages.extend(history)
+        messages.append({"role": "user", "content": prompt})
+
+        response = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=messages,
+        )
+
+        return response.choices[0].message.content
+
     def stream(self, prompt: str, system_prompt: Optional[str] = None) -> Generator[str, None, None]:
         messages = []
         if system_prompt:

@@ -28,3 +28,29 @@ class LLMProvider(ABC):
     def stream(self, prompt: str, system_prompt: Optional[str] = None) -> Generator[str, None, None]:
         """Produce a streaming completion."""
         pass
+
+    def generate_response(self, system_prompt: str, history: List[Dict[str, str]], prompt: str) -> str:
+        """
+        Generate a response using the conversation history.
+        This is a convenience method for agent/chatbot that handles multi-turn conversations.
+        
+        Args:
+            system_prompt: System/context prompt
+            history: List of previous messages with 'role' and 'content'
+            prompt: User's current input
+            
+        Returns:
+            The LLM's response text
+        """
+        # Build messages: system + history + current prompt
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        
+        messages.extend(history)
+        messages.append({"role": "user", "content": prompt})
+        
+        # For now, use generate() with just the current prompt and system
+        # A subclass can override this for better history handling
+        response = self.generate(prompt, system_prompt)
+        return response["content"]

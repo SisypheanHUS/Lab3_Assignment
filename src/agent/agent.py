@@ -48,7 +48,7 @@ class ReActAgent:
 
     def run(self, user_input: str) -> str:
         """
-        Execute the agent loop.
+        Execute the agent loop (Thought-Action-Observation cycle).
         """
         self.history = []
         logger.log_event("AGENT_START", {"input": user_input, "model": self.llm.model_name})
@@ -57,40 +57,41 @@ class ReActAgent:
         steps = 0
 
         while steps < self.max_steps:
-            # TODO: Generate LLM response
+            # Generate LLM response
             response = self.llm.generate_response(self.get_system_prompt(), self.history, prompt)
             self.history.append({"role": "assistant", "content": response})
-            logger.log_event("AGENT_STEP",{"step":steps,"response": response})
-            # TODO: Parse Thought/Action from result
+            logger.log_event("AGENT_STEP", {"step": steps, "response": response})
+            
+            # Parse Thought/Action from result
             action_match = re.search(r"Action:\s*(\w+)\[([^\]]*)\]", response)
             final_match = re.search(r"Final Answer:\s*(.*)", response, re.DOTALL)
 
+            # If Final Answer found -> Break loop and return
+            if final_match:
+                final_answer = final_match.group(1).strip()
+                logger.log_event("FINAL_ANSWER", {"answer": final_answer, "steps": steps})
+                return final_answer
 
-
-            # TODO: If Action found -> Call tool -> Append Observation
+            # If Action found -> Call tool -> Append Observation
             if action_match:
                 tool_name = action_match.group(1).strip()
                 tool_input = action_match.group(2).strip()
                 logger.log_event("TOOL_CALL", {"tool": tool_name, "input": tool_input})
 
-            if tool_name in self.tools:
-                observation = self.tools[tool_name].run(tool_input)
+                observation = self._execute_tool(tool_name, tool_input)
+                logger.log_event("OBSERVATION", {"observation": observation})
+                prompt = f"Observation: {observation}"
+                self.history.append({"role": "user", "content": prompt})
             else:
-                observation = f"Error: tool '{tool_name}' not found."
-
-            logger.log_event("OBSERVATION", {"observation": observation})
-            prompt = f"Observation: {observation}"
-            self.history.append({"role": "user", "content": prompt})
+                # No action or final answer found, log warning and ask for proper format
+                logger.log_event("PARSING_ERROR", {"step": steps, "response": response})
+                prompt = "Could not parse your response. Please follow the format: Thought: ... Action: tool_name[args] ... or Final Answer: ..."
+                self.history.append({"role": "user", "content": prompt})
 
             steps += 1
-            # TODO: If Final Answer found -> Break loop
-            if final_match:
-                final_answer = final_match.group(1).strip()
-                logger.log_event("FINAL_ANSWER", {"answer": final_answer, "steps": steps})
-            return final_answer
-            
+
         logger.log_event("AGENT_END", {"steps": steps})
-        return "Not implemented. Fill in the TODOs!"
+        return "Max steps reached without final answer."
 
     def _execute_tool(self, tool_name: str, args: str) -> str:
         """

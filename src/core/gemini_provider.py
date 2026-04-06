@@ -47,3 +47,23 @@ class GeminiProvider(LLMProvider):
         response = self.model.generate_content(full_prompt, stream=True)
         for chunk in response:
             yield chunk.text
+
+    def generate_response(self, system_prompt: str, history: list, prompt: str) -> str:
+        """
+        Generate a response with full conversation history.
+        Overrides base class to properly handle multi-turn conversations for Gemini.
+        """
+        # Build a string representation of the conversation history
+        conversation = ""
+        if system_prompt:
+            conversation += f"System: {system_prompt}\n\n"
+        
+        for msg in history:
+            role = msg.get("role", "user").capitalize()
+            content = msg.get("content", "")
+            conversation += f"{role}: {content}\n"
+        
+        conversation += f"User: {prompt}"
+        
+        response = self.model.generate_content(conversation)
+        return response.text

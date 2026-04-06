@@ -1,7 +1,6 @@
 import time
 import os
 from typing import Dict, Any, Optional, Generator
-from llama_cpp import Llama
 from src.core.llm_provider import LLMProvider
 
 class LocalProvider(LLMProvider):
@@ -18,6 +17,12 @@ class LocalProvider(LLMProvider):
             n_threads: Number of CPU threads to use. Defaults to all available.
         """
         super().__init__(model_name=os.path.basename(model_path))
+        
+        # Lazy import - only import when actually using local provider
+        try:
+            from llama_cpp import Llama
+        except ImportError:
+            raise ImportError("llama_cpp is not installed. Install with: pip install llama-cpp-python")
         
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"Model file not found at {model_path}. Please download it first.")
@@ -82,3 +87,35 @@ class LocalProvider(LLMProvider):
             token = chunk["choices"][0]["text"]
             if token:
                 yield token
+
+    def generate_response(self, system_prompt: str, history: list, prompt: str) -> str:
+        """
+        Generate a response with full conversation history.
+        Overrides base class to properly handle multi-turn conversations for local models.
+        """
+        # Build conversation with proper formatting
+        full_prompt = ""
+        
+        if system_prompt:
+            full_prompt += f"<|system|>\n{system_prompt}<|end|>\n"
+        
+        # Build conversation history
+        for msg in history:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            if role == "user":
+                full_prompt += f"<|user|>\n{content}<|end|>\n"
+            elif role == "assistant":
+                full_prompt += f"<|assistant|>\n{content}<|end|>\n"
+        
+        # Add current prompt
+        full_prompt += f"<|user|>\n{prompt}<|end|>\n<|assistant|>"
+        
+        response = self.llm(
+            full_prompt,
+            max_tokens=1024,
+            stop=["<|end|>", "Observation:"],
+            echo=False
+        )
+        
+        return response["choices"][0]["text"].strip()
