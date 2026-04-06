@@ -17,24 +17,34 @@ class ReActAgent:
         self.history = []
 
     def get_system_prompt(self) -> str:
-        """
-        TODO: Implement the system prompt that instructs the agent to follow ReAct.
-        Should include:
-        1.  Available tools and their descriptions.
-        2.  Format instructions: Thought, Action, Observation.
-        """
-        tool_descriptions = "\n".join([f"- {t['name']}: {t['description']}" for t in self.tools])
-        return f"""
-        You are an intelligent assistant. You have access to the following tools:
-        {tool_descriptions}
+        
+        system_prompt = f"""
+        Bạn là một trợ lý về du lịch, hỗ trợ trong việc gợi ý các địa điểm du lịch dựa trên khu vực mà người dùng muốn đi. 
+        Bạn có quyền truy cập vào các công cụ sau :
+        {"google_search": "Tìm kiếm thông tin trên Google về các địa điểm du lịch ở khu vực mà người dùng yêu cầu."}
+        {"weather_api": "Kiểm tra thời tiết hiện tại tại khu vực mà người dùng muốn đến."}
+        {"booking_api": "Kiểm tra tình trạng phòng khách sạn tại khu vực mà người dùng muốn đến."}
 
-        Use the following format:
-        Thought: your line of reasoning.
-        Action: tool_name(arguments)
-        Observation: result of the tool call.
-        ... (repeat Thought/Action/Observation if needed)
-        Final Answer: your final response.
+        Dựa trên thông tin mà người dùng cung cấp, hãy sử dụng các công cụ trên để thu thập thông tin cần thiết và đưa ra gợi ý về các địa điểm du lịch phù hợp.
+
+        Hãy tuân theo định dạng sau:
+        - Hãy đưa ra ít nhất 3 gợi ý về địa điểm du lịch.
+        - Với mỗi địa điểm du lịch mà bạn gợi ý, hãy cung cấp thông tin chi tiết bao gồm:
+            + Tên địa điểm
+            + Mô tả ngắn gọn về địa điểm
+            + Lý do tại sao địa điểm này phù hợp với yêu cầu của người dùng(Giá cả, thời tiết, hoạt động giải trí, v.v.)
+            + Thông tin về tình trạng phòng khách sạn gần địa điểm đó (nếu có thể) 
+            + Tips để có thể tận hưởng chuyến đi tốt nhất (nếu có thể)
+
+        Sử dụng luồng suy nghĩ sau để đưa ra gợi ý:
+        Thought: suy nghĩ của bạn về yêu cầu của người dùng và cách bạn sẽ sử dụng các công cụ.
+        Action: công cụ bạn sẽ sử dụng và các tham số của nó.
+        Observation: kết quả trả về từ công cụ sau khi bạn thực hiện Action.
+        ... (lặp lại Thought/Action/Observation nếu cần thiết)
+        Final response: gợi ý cuối cùng của bạn cho người dùng dựa trên các thông tin thu thập được.
         """
+
+        return system_prompt
 
     def run(self, user_input: str) -> str:
         """
@@ -43,18 +53,24 @@ class ReActAgent:
         2. Parse Action and execute Tool.
         3. Append Observation to prompt and repeat until Final Answer.
         """
+
+        self.history = []
+
         logger.log_event("AGENT_START", {"input": user_input, "model": self.llm.model_name})
         
         current_prompt = user_input
         steps = 0
 
         while steps < self.max_steps:
-            # TODO: Generate LLM response
-            # result = self.llm.generate(current_prompt, system_prompt=self.get_system_prompt())
-            #testing avc
+            self.history.append(current_prompt)
+            logger.log_event("AGENT_STEP", {"step": steps, "prompt": current_prompt})
+            response = self.llm.generate(current_prompt, system_prompt=self.get_system_prompt())
+            content = response.strip()
+            self.history.append(content)
             
-            # TODO: Parse Thought/Action from result
+            # Parse Thought/Action from result
             
+
             # TODO: If Action found -> Call tool -> Append Observation
             
             # TODO: If Final Answer found -> Break loop
